@@ -10,6 +10,12 @@
   <body>
     <header><h1>Doggocam</h1></header>
     <section>
+      <h2>Config</h2>
+      <select id="target_source">
+        <option>Loading Sources...</option>
+      </select>
+    </section>
+    <section>
       <h2>Command Logs</h2>
       <ul id="command_log"></ul>
     </section>
@@ -17,12 +23,16 @@
       <h2>Channel List</h2>
     </section>
     <script type="application/javascript" src="./tmi.min.js"></script>
+    <script
+      type="application/javascript"
+      src="https://unpkg.com/obs-websocket-js@4.0.3/dist/obs-websocket.js"
+    ></script>
     <script type="application/javascript">
       function authAndConnect() {
         // build the auth uri
         const commands = {
-          '!doggocam': { duration: 5 },
-          '!doggocam15': { duration: 15 },
+          '!doggocam': { duration: 5, requireMod: false },
+          '!doggocam15': { duration: 15, requireMod: true },
         };
         const clientId = 'd3musw66rb3uibj08g4prkq3kw8ist';
         const redirectUri = 'https://pxslip.github.io/doggocam';
@@ -62,6 +72,33 @@
           localStorage.setItem('doggocam_accessToken', accessToken);
           localStorage.setItem('doggocam_username', username);
         }
+        // connect to obs
+        const obs = new OBSWebSocket();
+        obs.connect({
+          address: 'localhost:4444',
+          password: '',
+          reconnect: true,
+        });
+        // get the list of scenes, and sources within them
+        const scenes = obs.send('GetSceneList');
+        const sources = [];
+        scenes.forEach((scene) => {
+          sources.push(...scene.sources);
+        });
+        // wire up a listener to store the selected source in localStorage for repeat visits
+        const targetSourceList = document.getElementById('target_source');
+        targetSourceList.addEventListener('change', (e) => {
+          localStorage.setItem('doggocam_targetSource', e.target.value);
+        });
+        const targetSource = localStorage.getItem('doggocam_targetSource');
+        sources.forEach((source) => {
+          const opt = document.createElement('option');
+          option.value = source.name;
+          option.innerText = source.name;
+          if (source.name === targetSource) {
+            option.selected = true;
+          }
+        });
         // if there is a token, connect to twitch
         const client = new tmi.client({
           connection: {
@@ -75,6 +112,8 @@
           channels: [`#${username}`],
         });
         client.connect();
+        let sourceActive = false;
+        let timeOutId = null;
         client.on('message', (channel, userstate, message, self) => {
           if (self) {
             return;
@@ -84,10 +123,30 @@
             command.startWith('!') &&
             Object.keys(commands).includes(command)
           ) {
-            const commandLog = document.getElementById('command_log');
-            const li = document.createElement('li');
-            li.innerText = `${userstate.username} ${message}`;
-            commandLog.appendChild(li);
+            const commandData = commands[command];
+            if (commandData.requireMod && !userstate.mod) {
+              return;
+            }
+            if (!sourceActive) {
+              obs.send('SetSceneItemProperties', {
+                item: {
+                  name: targetSource,
+                },
+                visible: true,
+              });
+            }
+            if (timeOutId) {
+              clearTimeout(timeOutId);
+            }
+            timeOutId = setTimeout(() => {
+              obs.send('SetSceneItemProperties', {
+                item: {
+                  name: targetSource,
+                },
+                visible: false,
+              });
+              sourceActive = false;
+            }, commandData.duration * 1000);
           }
         });
       }
