@@ -41,7 +41,7 @@
         const claims = encodeURIComponent(
           '{id_token: {preferred_username: null}}'
         );
-        const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scopes}&claims=${claims}`;
+        const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&claims=${claims}`;
         // check if there is a twitch token in the url
         const fragment = window.location.hash.substr(1);
         const data = fragment.split('&');
