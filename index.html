@@ -35,7 +35,7 @@
           '!doggocam15': { duration: 15, requireMod: true },
         };
         const clientId = 'd3musw66rb3uibj08g4prkq3kw8ist';
-        const redirectUri = 'https://pxslip.github.io/doggocam';
+        const redirectUri = 'https://pxslip.github.io/doggocam/';
         const responseType = encodeURIComponent('token id_token');
         const scope = encodeURIComponent('chat:read openid');
         const claims = encodeURIComponent(
@@ -62,7 +62,7 @@
           username = localStorage.getItem('doggocam_username');
           if (!accessToken && !username) {
             // redirect to twitch auth
-            // window.location.href = twitchAuthUrl;
+            window.location.href = twitchAuthUrl;
             return;
           }
         } else {
