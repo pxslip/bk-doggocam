@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Doggocam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style></style>
+  </head>
+  <body>
+    <header><h1>Doggocam</h1></header>
+    <section>
+      <h2>Command Logs</h2>
+      <ul id="command_log"></ul>
+    </section>
+    <section>
+      <h2>Channel List</h2>
+    </section>
+    <script type="application/javascript" src="/tmi.min.js"></script>
+    <script type="application/javascript">
+      function authAndConnect() {
+        // build the auth uri
+        const commands = {
+          '!doggocam': { duration: 5 },
+          '!doggocam15': { duration: 15 },
+        };
+        const clientId = 'd3musw66rb3uibj08g4prkq3kw8ist';
+        const redirectUri = 'https://pxslip.github.io/doggocam';
+        const responseType = encodeURIComponent('token id_token');
+        const scope = encodeURIComponent('chat:read openid');
+        const claims = encodeURIComponent(
+          '{id_token: {preferred_username: null}}'
+        );
+        const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scopes}&claims=${claims}`;
+        // check if there is a twitch token in the url
+        const fragment = window.location.hash.substr(1);
+        const data = fragment.split('&');
+        let idToken = '';
+        let accessToken = '';
+        let username = '';
+        for (frag of data) {
+          const [key, value] = frag.split('=');
+          if (key === 'id_token') {
+            idToken = value;
+          } else if (key === 'access_token') {
+            accessToken = value;
+          }
+        }
+        if (!idToken && !accessToken) {
+          // check localStorage for the token/username
+          accessToken = localStorage.getItem('doggocam_accessToken');
+          username = localStorage.getItem('doggocam_username');
+          if (!accessToken && !username) {
+            // redirect to twitch auth
+            window.location.href = twitchAuthUrl;
+            return;
+          }
+        } else {
+          // we have an access token and JWT, get the username and shove both in localStorage
+          const jwt = JSON.parse(atob(idToken.split('.')[1]));
+          username = jwt.preferred_username;
+          localStorage.setItem('doggocam_accessToken', accessToken);
+          localStorage.setItem('doggocam_username', username);
+        }
+        // if there is a token, connect to twitch
+        const client = new tmi.client({
+          connection: {
+            secure: true,
+            reconnect: true,
+          },
+          identity: {
+            username: username,
+            password: accessToken,
+          },
+          channels: [`#${username}`],
+        });
+        client.connect();
+        client.on('message', (channel, userstate, message, self) => {
+          if (self) {
+            return;
+          }
+          const command = message.split(' ')[0];
+          if (
+            command.startWith('!') &&
+            Object.keys(commands).includes(command)
+          ) {
+            const commandLog = document.getElementById('command_log');
+            const li = document.createElement('li');
+            li.innerText = `${userstate.username} ${message}`;
+            commandLog.appendChild(li);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
