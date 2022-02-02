@@ -13,7 +13,7 @@
   </head>
   <body>
     <header><h1>Doggocam</h1></header>
-    <section class="hidden">
+    <section id="twitch_auth_wrapper" class="hidden">
       <h2><a id="twitch_auth">Connect to Twitch</a></h2>
     </section>
     <section>
@@ -43,8 +43,8 @@
         };
         const clientId = 'd3musw66rb3uibj08g4prkq3kw8ist';
         const redirectUri = 'https://pxslip.github.io/doggocam/';
-        const responseType = 'token+id_token';
-        const scope = 'chat:read+openid';
+        const responseType = 'token id_token';
+        const scope = 'chat:read openid';
         const claims = encodeURIComponent(
           '{"id_token": {"preferred_username": null, "email": null}}'
         );
@@ -80,7 +80,9 @@
             // redirect to twitch auth
             if (!window.location.search.includes('error')) {
               document.getElementById('twitch_auth').href = twitchAuthUrl;
-              document.getElementById('twitch_auth').classList.remove('hidden');
+              document
+                .getElementById('twitch_auth_wrapper')
+                .classList.remove('hidden');
             }
             return;
           }
