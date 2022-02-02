@@ -78,7 +78,7 @@
           username = localStorage.getItem('doggocam_username');
           if (!accessToken && !username) {
             // redirect to twitch auth
-            if (!window.location.search.includes('twitch.tv')) {
+            if (!window.location.search.includes('error')) {
               document.getElementById('twitch_auth').href = twitchAuthUrl;
               document.getElementById('twitch_auth').classList.remove('hidden');
             }
