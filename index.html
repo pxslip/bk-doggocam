@@ -5,10 +5,17 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Doggocam</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style></style>
+    <style>
+      .hidden {
+        display: none;
+      }
+    </style>
   </head>
   <body>
     <header><h1>Doggocam</h1></header>
+    <section class="hidden">
+      <h2><a id="twitch_auth">Connect to Twitch</a></h2>
+    </section>
     <section>
       <h2>Config</h2>
       <select id="target_source">
@@ -36,12 +43,21 @@
         };
         const clientId = 'd3musw66rb3uibj08g4prkq3kw8ist';
         const redirectUri = 'https://pxslip.github.io/doggocam/';
-        const responseType = encodeURIComponent('token id_token');
-        const scope = encodeURIComponent('chat:read openid');
+        const responseType = 'token+id_token';
+        const scope = 'chat:read+openid';
         const claims = encodeURIComponent(
-          '{id_token: {preferred_username: null}}'
+          '{"id_token": {"preferred_username": null, "email": null}}'
         );
-        const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&claims=${claims}`;
+        const twitchAuthUrlBuilder = new URL(
+          '/oauth2/authorize',
+          'https://id.twitch.tv'
+        );
+        twitchAuthUrlBuilder.searchParams.set('client_id', clientId);
+        twitchAuthUrlBuilder.searchParams.set('redirect_uri', redirectUri);
+        twitchAuthUrlBuilder.searchParams.set('response_type', responseType);
+        twitchAuthUrlBuilder.searchParams.set('scope', scope);
+        twitchAuthUrlBuilder.searchParams.set('claims', claims);
+        const twitchAuthUrl = twitchAuthUrlBuilder.toString();
         // check if there is a twitch token in the url
         const fragment = window.location.hash.substr(1);
         const data = fragment.split('&');
@@ -62,7 +78,10 @@
           username = localStorage.getItem('doggocam_username');
           if (!accessToken && !username) {
             // redirect to twitch auth
-            window.location.href = twitchAuthUrl;
+            if (!window.location.search.includes('twitch.tv')) {
+              document.getElementById('twitch_auth').href = twitchAuthUrl;
+              document.getElementById('twitch_auth').classList.remove('hidden');
+            }
             return;
           }
         } else {
