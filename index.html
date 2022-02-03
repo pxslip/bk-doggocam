@@ -18,9 +18,17 @@
     </section>
     <section>
       <h2>Config</h2>
-      <select id="target_source">
-        <option>Loading Sources...</option>
-      </select>
+      <div>
+        <label for="target_source"></label>
+        <select id="target_source">
+          <option>Loading Sources...</option>
+        </select>
+      </div>
+      <div>
+        <label for="channel_adder">Add a Twitch Channel</label>
+        <input type="text" id="channel_adder" />
+        <button type="button" id="add_channel">Add</button>
+      </div>
     </section>
     <section>
       <h2>Command Logs</h2>
@@ -229,6 +237,20 @@
             addTriggerToCommandLog(userstate['display-name'], command);
           }
         });
+        // add the channel adder functionality
+        document
+          .getElementById('add_channel')
+          .addEventListener('click', async (evt) => {
+            const channelInput = document.getElementById('channel_adder');
+            const channel = `#${channelInput.value}`;
+            try {
+              await client.join(channel);
+              addChannelToList(channel);
+              channelInput.value = '';
+            } catch (exc) {
+              console.error(exc);
+            }
+          });
       }
 
       async function authAndConnect() {
