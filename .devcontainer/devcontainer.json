@@ -14,7 +14,11 @@
   "settings": {},
 
   // Add the IDs of extensions you want installed when the container is created.
-  "extensions": ["dbaeumer.vscode-eslint"],
+  "extensions": [
+	"dbaeumer.vscode-eslint",
+	"arcanis.vscode-zipfs",
+	"esbenp.prettier-vscode"
+],
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
@@ -23,8 +27,12 @@
   // "postCreateCommand": "yarn install",
 
   "runArgs": [
-    "-l traefik.http.routers.doggocam.rule=Host(`doggocam.pxslip.localhost`, `doggocam.traefik.localhost`",
-    "-l traefik.http.services.doggocam.loadbalancer.server.port=8080"
+    "--label",
+    "traefik.http.routers.doggocam.rule=Host(`doggocam.pxslip.localhost`, `doggocam.traefik.localhost`)",
+    "--label",
+    "traefik.http.services.doggocam.loadbalancer.server.port=8080",
+    "--network",
+    "traefik"
   ],
 
   // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
