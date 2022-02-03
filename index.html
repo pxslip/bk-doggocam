@@ -198,7 +198,10 @@
             Object.keys(commands).includes(command)
           ) {
             const commandData = commands[command];
-            if (commandData.requireMod && !userstate.mod) {
+            if (
+              commandData.requireMod &&
+              !(userstate.mod || userstate.badges.broadcaster === '1')
+            ) {
               return;
             }
             const targetSource = getTargetSource();
