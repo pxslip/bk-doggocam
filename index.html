@@ -161,7 +161,8 @@
       function addTriggerToCommandLog(username, command) {
         const li = document.createElement('li');
         const msg = `${username} triggered ${command} at ${Date()}`;
-        document.getElementById('command_log').append(msg);
+        li.innerText = msg;
+        document.getElementById('command_log').append(li);
       }
 
       /**
