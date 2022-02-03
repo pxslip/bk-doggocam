@@ -42,16 +42,11 @@
       };
       let targetSource = null;
       function getTargetSource() {
-        if (targetSource) {
-          return targetSource;
-        }
         targetSource = JSON.parse(
           document.getElementById('target_source').value
         );
         return targetSource;
       }
-
-      getTargetSource.prototype.target = null;
 
       function buildTwitchAuthUrl() {
         const clientId = 'd3musw66rb3uibj08g4prkq3kw8ist';
