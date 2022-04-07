@@ -9,6 +9,13 @@
       .hidden {
         display: none;
       }
+      .alert {
+        background-color: #fca5a5;
+        border: 1px solid #f87171;
+        border-radius: 4px;
+        color: #7f1d1d;
+        padding: 0.25em;
+      }
     </style>
   </head>
   <body>
@@ -16,9 +23,11 @@
       <h1>Doggocam</h1>
       <p>
         Doggocam requires
-        <a href="https://github.com/obsproject/obs-websocket/releases/tag/4.9.1"
-          >OBS Websocket</a
+        <a
+          href="https://github.com/obsproject/obs-websocket/releases/tag/4.9.1"
         >
+          OBS Websocket
+        </a>
         to work. Currently Doggocam does not support authentication so please
         leave authentication off.
       </p>
@@ -26,8 +35,12 @@
     <section id="twitch_auth_wrapper" class="hidden">
       <h2><a id="twitch_auth">Connect to Twitch</a></h2>
     </section>
-    <section>
+    <section id="obs_sources_wrapper">
       <h2>Config</h2>
+      <h3 id="obs_connection_alert" class="alert hidden">
+        There was an error connecting to OBS, please check that OBS Websockets
+        is running before reloading the page
+      </h3>
       <select id="target_source">
         <option>Loading Sources...</option>
       </select>
@@ -51,6 +64,11 @@
         '!doggocam15': { duration: 15, requireMod: true },
         '!doggo15': { duration: 15, requireMod: true },
       };
+      const keys = Object.freeze({
+        token: 'doggocam_accessToken',
+        username: 'doggocam_username',
+        source: 'doggocam_targetSource',
+      });
       let targetSource = null;
       function getTargetSource() {
         targetSource = JSON.parse(
@@ -79,6 +97,13 @@
         return twitchAuthUrlBuilder.toString();
       }
 
+      function showTwitchAuthUrl() {
+        document.getElementById('twitch_auth').href = buildTwitchAuthUrl();
+        document
+          .getElementById('twitch_auth_wrapper')
+          .classList.remove('hidden');
+      }
+
       function getHashFragmentData() {
         // check if there is a twitch token in the url
         const fragment = window.location.hash.substr(1);
@@ -105,14 +130,20 @@
        */
       async function connectToOBS() {
         // connect to obs
-        const obs = new OBSWebSocket();
-        await obs.connect({
-          address: 'localhost:4444',
-          password: '',
-          reconnect: true,
-        });
-        // get the list of scenes, and sources within them
-        return obs;
+        try {
+          const obs = new OBSWebSocket();
+          await obs.connect({
+            address: 'localhost:4444',
+            password: '',
+            reconnect: true,
+          });
+          return obs;
+        } catch (exc) {
+          console.error(exc);
+          document
+            .getElementById('obs_connection_alert')
+            .classList.remove('hidden');
+        }
       }
       /**
        * Get the scenes from OBS and assign them to the dropdown
@@ -136,13 +167,13 @@
         // wire up a listener to store the selected source in localStorage for repeat visits
         const targetSourceList = document.getElementById('target_source');
         targetSourceList.addEventListener('change', (e) => {
-          localStorage.setItem('doggocam_targetSource', e.target.value);
+          localStorage.setItem(keys.source, e.target.value);
         });
         while (targetSourceList.firstChild) {
           targetSourceList.removeChild(targetSourceList.firstChild);
         }
         const savedTargetSource = JSON.parse(
-          localStorage.getItem('doggocam_targetSource') || '{}'
+          localStorage.getItem(keys.source) || '{}'
         );
         sources.forEach((source) => {
           const opt = document.createElement('option');
@@ -189,6 +220,9 @@
             secure: true,
             reconnect: true,
           },
+          options: {
+            skipUpdatingEmotesets: true,
+          },
           identity: {
             username: username,
             password: accessToken,
@@ -196,53 +230,61 @@
           channels: [`#${username}`],
         });
         addChannelToList(`#${username}`);
-        await client.connect();
-        let sourceActive = false;
-        let timeOutId = null;
-        client.on('message', (channel, userstate, message, self) => {
-          if (self) {
-            return;
-          }
-          const command = message.split(' ')[0];
-          if (
-            command.startsWith('!') &&
-            Object.keys(commands).includes(command)
-          ) {
-            const commandData = commands[command];
-            if (
-              commandData.requireMod &&
-              !(userstate.mod || userstate.badges.broadcaster === '1')
-            ) {
+        try {
+          await client.connect();
+          let sourceActive = false;
+          let timeOutId = null;
+          client.on('message', (channel, userstate, message, self) => {
+            if (self) {
               return;
             }
-            const targetSource = getTargetSource();
-            if (!sourceActive) {
-              obs.send('SetSceneItemProperties', {
-                'scene-name': targetSource.scene,
-                item: {
-                  name: targetSource.name,
-                  id: targetSource.id,
-                },
-                visible: true,
-              });
+            const command = message.split(' ')[0];
+            if (
+              command.startsWith('!') &&
+              Object.keys(commands).includes(command)
+            ) {
+              const commandData = commands[command];
+              if (
+                commandData.requireMod &&
+                !(userstate.mod || userstate.badges.broadcaster === '1')
+              ) {
+                return;
+              }
+              const targetSource = getTargetSource();
+              if (!sourceActive) {
+                obs.send('SetSceneItemProperties', {
+                  'scene-name': targetSource.scene,
+                  item: {
+                    name: targetSource.name,
+                    id: targetSource.id,
+                  },
+                  visible: true,
+                });
+              }
+              if (timeOutId) {
+                clearTimeout(timeOutId);
+              }
+              timeOutId = setTimeout(() => {
+                obs.send('SetSceneItemProperties', {
+                  'scene-name': targetSource.scene,
+                  item: {
+                    name: targetSource.name,
+                    id: targetSource.id,
+                  },
+                  visible: false,
+                });
+                sourceActive = false;
+              }, commandData.duration * 60 * 1000);
+              addTriggerToCommandLog(userstate['display-name'], command);
             }
-            if (timeOutId) {
-              clearTimeout(timeOutId);
-            }
-            timeOutId = setTimeout(() => {
-              obs.send('SetSceneItemProperties', {
-                'scene-name': targetSource.scene,
-                item: {
-                  name: targetSource.name,
-                  id: targetSource.id,
-                },
-                visible: false,
-              });
-              sourceActive = false;
-            }, commandData.duration * 60 * 1000);
-            addTriggerToCommandLog(userstate['display-name'], command);
-          }
-        });
+          });
+        } catch (exc) {
+          console.error(exc);
+          // Assume the connection failed due to expired tokens or similar, clear the token and re-auth
+          localStorage.removeItem(keys.token);
+          localStorage.removeItem(keys.username);
+          showTwitchAuthUrl();
+        }
       }
 
       async function authAndConnect() {
@@ -251,16 +293,12 @@
         let username = '';
         if (!idToken && !accessToken) {
           // check localStorage for the token/username
-          accessToken = localStorage.getItem('doggocam_accessToken');
-          username = localStorage.getItem('doggocam_username');
+          accessToken = localStorage.getItem(keys.token);
+          username = localStorage.getItem(keys.username);
           if (!accessToken && !username) {
             // redirect to twitch auth
             if (!window.location.search.includes('error')) {
-              document.getElementById('twitch_auth').href =
-                buildTwitchAuthUrl();
-              document
-                .getElementById('twitch_auth_wrapper')
-                .classList.remove('hidden');
+              showTwitchAuthUrl();
             }
             return;
           }
@@ -268,8 +306,8 @@
           // we have an access token and JWT, get the username and shove both in localStorage
           const jwt = JSON.parse(atob(idToken.split('.')[1]));
           username = jwt.preferred_username;
-          localStorage.setItem('doggocam_accessToken', accessToken);
-          localStorage.setItem('doggocam_username', username);
+          localStorage.setItem(keys.token, accessToken);
+          localStorage.setItem(keys.username, username);
         }
         const obs = await connectToOBS();
         getOBSScenes(obs);
