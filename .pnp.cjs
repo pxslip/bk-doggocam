@@ -276,7 +276,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["html-encoding-sniffer", "npm:3.0.0"],
             ["http-proxy", "npm:1.18.1"],
             ["mime", "npm:1.6.0"],
-            ["minimist", "npm:1.2.5"],
+            ["minimist", "npm:1.2.8"],
             ["opener", "npm:1.5.2"],
             ["portfinder", "npm:1.0.28"],
             ["secure-compare", "npm:3.0.1"],
@@ -315,10 +315,10 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         }]
       ]],
       ["minimist", [
-        ["npm:1.2.5", {
-          "packageLocation": "./.yarn/cache/minimist-npm-1.2.5-ced0e1f617-86706ce5b3.zip/node_modules/minimist/",
+        ["npm:1.2.8", {
+          "packageLocation": "./.yarn/cache/minimist-npm-1.2.8-d7af7b1dce-75a6d645fb.zip/node_modules/minimist/",
           "packageDependencies": [
-            ["minimist", "npm:1.2.5"]
+            ["minimist", "npm:1.2.8"]
           ],
           "linkType": "HARD",
         }]
@@ -328,7 +328,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/mkdirp-npm-0.5.5-6bc76534fc-3bce20ea52.zip/node_modules/mkdirp/",
           "packageDependencies": [
             ["mkdirp", "npm:0.5.5"],
-            ["minimist", "npm:1.2.5"]
+            ["minimist", "npm:1.2.8"]
           ],
           "linkType": "HARD",
         }]
