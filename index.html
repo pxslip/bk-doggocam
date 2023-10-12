@@ -91,6 +91,7 @@
       src="https://unpkg.com/obs-websocket-js@5.0.3/dist/obs-ws.min.js"
     ></script>
     <script type="application/javascript">
+      /** @typedef {import('obs-websocket-js').OBSWebsocket} OBSWebSocket */
       const commands = {
         '!doggocam': { duration: 3, requireMod: false },
         '!doggocam15': { duration: 15, requireMod: true },
@@ -158,16 +159,21 @@
       }
 
       /**
+       * @returns {{addr?: string, pass?: string}}
+       */
+      function getOBSSettings() {
+        const storedSettings = localStorage.getItem(keys.obsSettings);
+        return storedSettings ? JSON.parse(storedSettings) : {};
+      }
+
+      /**
        * Connect to the local OBS websocket server
-       * @returns {OBSWebSocket}
+       * @returns {import('obs-websocket-js').OBSWebSocket}
        */
       async function connectToOBS() {
         // connect to obs
         try {
-          const storedSettings = localStorage.getItem(keys.obsSettings);
-          const { addr, pass } = storedSettings
-            ? JSON.parse(storedSettings)
-            : {};
+          const { addr, pass } = getOBSSettings();
           const obs = new OBSWebSocket();
           await obs.connect(addr, pass);
           return obs;
@@ -352,12 +358,17 @@
       }
 
       function updateOBSSettings() {
-        const addr = document.getElementById('obs_addr').value ?? 'localhost';
-        const port = document.getElementById('obs_port').value ?? '4455';
-        const pass = document.getElementById('obs_pass').value ?? undefined;
+        const { addr: storedAddr, pass: storedPass } = getOBSSettings();
+        const ip = document.getElementById('obs_addr').value;
+        const port = document.getElementById('obs_port').value;
+        const pass = document.getElementById('obs_pass').value ?? storedPass;
+        const addr =
+          ip && port
+            ? `ws://${ip}:${port}`
+            : storedAddr ?? `ws://localhost:4455`;
         localStorage.setItem(
           keys.obsSettings,
-          JSON.stringify({ addr: `ws://${addr}:${port}`, pass })
+          JSON.stringify({ addr: `ws://${ip}:${port}`, pass })
         );
         authAndConnect();
       }
