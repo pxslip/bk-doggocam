@@ -28,19 +28,51 @@
         >
           OBS Websocket
         </a>
-        to work. Currently Doggocam does not support authentication so please
-        leave authentication off.
+        to work.
       </p>
     </header>
+    <section id="obs_auth_wrapper" class="hidden">
+      <label style="display: block">
+        Websocket Address (Server IP)
+        <input type="text" id="obs_addr" name="obsAddr" value="localhost" />
+        <p>
+          If you are running OBS and this application on the same computer,
+          please leave this field blank or enter localhost instead of using the
+          value in OBS
+        </p>
+      </label>
+      <label style="display: block">
+        Websocket Port (Server Port)
+        <input
+          type="number"
+          id="obs_port"
+          name="obsAddr"
+          value="4455"
+          step="1"
+          min="1"
+          max="65535"
+        />
+      </label>
+      <label style="display: block">
+        Websocket Password (Server Password)
+        <input type="password" id="obs_pass" name="obsAddr" />
+      </label>
+      <p>
+        These values can be found in OBS by going to Tools > WebSocket Server
+        Settings > Show Connect Info
+      </p>
+      <button type="button" onclick="updateOBSSettings()">Connect</button>
+      <h3 id="obs_connection_alert" class="alert hidden">
+        There was an error connecting to OBS, please check that OBS Websockets
+        is running and that the connection parameters above are correct. Once
+        complete click Connect above
+      </h3>
+    </section>
     <section id="twitch_auth_wrapper" class="hidden">
       <h2><a id="twitch_auth">Connect to Twitch</a></h2>
     </section>
     <section id="obs_sources_wrapper">
       <h2>Config</h2>
-      <h3 id="obs_connection_alert" class="alert hidden">
-        There was an error connecting to OBS, please check that OBS Websockets
-        is running before reloading the page
-      </h3>
       <select id="target_source">
         <option>Loading Sources...</option>
       </select>
@@ -56,7 +88,7 @@
     <script type="application/javascript" src="./tmi.min.js"></script>
     <script
       type="application/javascript"
-      src="https://unpkg.com/obs-websocket-js@4.0.3/dist/obs-websocket.js"
+      src="https://unpkg.com/obs-websocket-js@5.0.3/dist/obs-ws.min.js"
     ></script>
     <script type="application/javascript">
       const commands = {
@@ -68,6 +100,7 @@
         token: 'doggocam_accessToken',
         username: 'doggocam_username',
         source: 'doggocam_targetSource',
+        obsSettings: 'doggocam_obsSettings',
       });
       let targetSource = null;
       function getTargetSource() {
@@ -131,18 +164,21 @@
       async function connectToOBS() {
         // connect to obs
         try {
+          const storedSettings = localStorage.getItem(keys.obsSettings);
+          const { addr, pass } = storedSettings
+            ? JSON.parse(storedSettings)
+            : {};
           const obs = new OBSWebSocket();
-          await obs.connect({
-            address: 'localhost:4444',
-            password: '',
-            reconnect: true,
-          });
+          await obs.connect(addr, pass);
           return obs;
         } catch (exc) {
           console.error(exc);
           document
             .getElementById('obs_connection_alert')
             .classList.remove('hidden');
+          throw new Error('Encountered an issue connecting to OBS', {
+            cause: exc,
+          });
         }
       }
       /**
@@ -150,19 +186,19 @@
        * @param {OBSWebSocket} obs
        */
       async function getOBSScenes(obs) {
-        const { scenes, currentScene } = await obs.send('GetSceneList');
+        const { scenes } = await obs.call('GetSceneList');
         const sources = new Set();
-        for (const scene of scenes) {
-          const { sceneItems } = await obs.send('GetSceneItemList', {
-            sceneName: scene.name,
+        for (const { sceneName } of scenes) {
+          const { sceneItems } = await obs.call('GetSceneItemList', {
+            sceneName: sceneName,
           });
-          sceneItems.forEach((sceneItem) => {
+          for (const { sourceName, sceneItemId } of sceneItems) {
             sources.add({
-              name: sceneItem.sourceName,
-              id: sceneItem.itemId,
-              scene: scene.name,
+              name: sourceName,
+              id: sceneItemId,
+              scene: sceneName,
             });
-          });
+          }
         }
         // wire up a listener to store the selected source in localStorage for repeat visits
         const targetSourceList = document.getElementById('target_source');
@@ -252,26 +288,22 @@
               }
               const targetSource = getTargetSource();
               if (!sourceActive) {
-                obs.send('SetSceneItemProperties', {
-                  'scene-name': targetSource.scene,
-                  item: {
-                    name: targetSource.name,
-                    id: targetSource.id,
-                  },
-                  visible: true,
+                obs.call('SetSceneItemEnabled', {
+                  sceneName: targetSource.scene,
+                  sceneItemId: targetSource.id,
+                  sceneItemEnabled: true,
                 });
+                sourceActive = true;
+                if (timeOutId) {
+                  clearTimeout(timeOutId);
+                }
               }
-              if (timeOutId) {
-                clearTimeout(timeOutId);
-              }
+
               timeOutId = setTimeout(() => {
-                obs.send('SetSceneItemProperties', {
-                  'scene-name': targetSource.scene,
-                  item: {
-                    name: targetSource.name,
-                    id: targetSource.id,
-                  },
-                  visible: false,
+                obs.call('SetSceneItemEnabled', {
+                  sceneName: targetSource.scene,
+                  sceneItemId: targetSource.id,
+                  sceneItemEnabled: false,
                 });
                 sourceActive = false;
               }, commandData.duration * 60 * 1000);
@@ -309,9 +341,27 @@
           localStorage.setItem(keys.token, accessToken);
           localStorage.setItem(keys.username, username);
         }
-        const obs = await connectToOBS();
-        getOBSScenes(obs);
-        connectToTwitchChat(obs, username, accessToken);
+        try {
+          const obs = await connectToOBS();
+          getOBSScenes(obs);
+          connectToTwitchChat(obs, username, accessToken);
+        } catch (exc) {
+          console.error(JSON.stringify(exc));
+          document
+            .getElementById('obs_auth_wrapper')
+            .classList.remove('hidden');
+        }
+      }
+
+      function updateOBSSettings() {
+        const addr = document.getElementById('obs_addr').value ?? 'localhost';
+        const port = document.getElementById('obs_port').value ?? '4455';
+        const pass = document.getElementById('obs_pass').value ?? undefined;
+        localStorage.setItem(
+          keys.obsSettings,
+          JSON.stringify({ addr: `ws://${addr}:${port}`, pass })
+        );
+        authAndConnect();
       }
 
       authAndConnect();
