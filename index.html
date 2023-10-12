@@ -268,7 +268,6 @@
         addChannelToList(`#${username}`);
         try {
           await client.connect();
-          let sourceActive = false;
           let timeOutId = null;
           client.on('message', (channel, userstate, message, self) => {
             if (self) {
@@ -286,26 +285,25 @@
               ) {
                 return;
               }
-              const targetSource = getTargetSource();
-              if (!sourceActive) {
-                obs.call('SetSceneItemEnabled', {
-                  sceneName: targetSource.scene,
-                  sceneItemId: targetSource.id,
-                  sceneItemEnabled: true,
-                });
-                sourceActive = true;
-                if (timeOutId) {
-                  clearTimeout(timeOutId);
-                }
+              // clear any old timeouts since the command has refired
+              if (timeOutId) {
+                clearTimeout(timeOutId);
               }
-
+              // get the source to show
+              const targetSource = getTargetSource();
+              obs.call('SetSceneItemEnabled', {
+                sceneName: targetSource.scene,
+                sceneItemId: targetSource.id,
+                sceneItemEnabled: true,
+              });
+              // now set a timeout for when the source should disappear
               timeOutId = setTimeout(() => {
                 obs.call('SetSceneItemEnabled', {
                   sceneName: targetSource.scene,
                   sceneItemId: targetSource.id,
                   sceneItemEnabled: false,
                 });
-                sourceActive = false;
+                timeOutId = null;
               }, commandData.duration * 60 * 1000);
               addTriggerToCommandLog(userstate['display-name'], command);
             }
